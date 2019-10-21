@@ -2,10 +2,10 @@
 [%raw "require('dotenv').config()"];
 
 /*
-[@bs.module "dotenv"] external dotenvConfig: unit => unit = "config";
-let foo = dotenvConfig();
-Js.log(foo);
-*/
+ [@bs.module "dotenv"] external dotenvConfig: unit => unit = "config";
+ let foo = dotenvConfig();
+ Js.log(foo);
+ */
 
 open Request;
 open Js.Promise;
@@ -24,14 +24,19 @@ let renderHTML = (_next, _req, res) => {
   let uid = "1HR1QvURo4MoSqO0eqmUeO";
 
   GetEntry(uid)->request
-  |> then_(Fetch.Response.json)
-  |> then_(json => {
-       Js.log(json);
-       let data = json->entryJson;
-
-       let content = ReactDOMServerRe.renderToString(<App title={data.fields.title} />);
-       Express.Response.sendString(content, res)->resolve;
-     });
+  |> then_(response =>
+       switch (response->Fetch.Response.status) {
+       | 200 =>
+         response->Fetch.Response.json
+         |> then_(json =>
+              ReactDOMServerRe.renderToString(<App title={json->entryJson.fields.title} />)
+              ->Express.Response.sendString(res)
+              ->resolve
+            )
+       | 400 => Express.Response.sendString("bad request", res)->resolve
+       | _ => Express.Response.sendString("unknown error", res)->resolve
+       }
+     );
 };
 
 renderHTML |> Express.PromiseMiddleware.from |> Express.App.useOnPath(~path="/", app);
